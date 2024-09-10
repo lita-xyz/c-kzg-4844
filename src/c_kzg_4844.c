@@ -21,7 +21,6 @@
  */
 #include "c_kzg_4844.h"
 
-#include <assert.h>
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
@@ -354,9 +353,6 @@ static void fr_from_uint64(fr_t *out, uint64_t n) {
 static C_KZG_RET fr_batch_inv(fr_t *out, const fr_t *a, int len) {
     int i;
 
-    assert(len > 0);
-    assert(a != out);
-
     fr_t accumulator = FR_ONE;
 
     for (i = 0; i < len; i++) {
@@ -651,9 +647,6 @@ static void compute_challenge(
     /* Copy commitment */
     bytes_from_g1((Bytes48 *)offset, commitment);
     offset += BYTES_PER_COMMITMENT;
-
-    /* Make sure we wrote the entire buffer */
-    assert(offset == bytes + CHALLENGE_INPUT_SIZE);
 
     /* Now let's create the challenge! */
     blst_sha256(eval_challenge.bytes, bytes, CHALLENGE_INPUT_SIZE);
@@ -1259,9 +1252,6 @@ static C_KZG_RET compute_r_powers(
 
     compute_powers(r_powers_out, &r, n);
 
-    /* Make sure we wrote the entire buffer */
-    assert(offset == bytes + input_size);
-
 out:
     c_kzg_free(bytes);
     return ret;
@@ -1299,8 +1289,6 @@ static C_KZG_RET verify_kzg_proof_batch(
     fr_t *r_powers = NULL;
     g1_t *C_minus_y = NULL;
     fr_t *r_times_z = NULL;
-
-    assert(n > 0);
 
     *ok = false;
 
@@ -1754,54 +1742,4 @@ out_error:
     free_trusted_setup(out);
 out_success:
     return ret;
-}
-
-/**
- * Load trusted setup from a file.
- *
- * @remark The file format is `n1 n2 g1_1 g1_2 ... g1_n1 g2_1 ... g2_n2` where
- *     the first two numbers are in decimal and the remainder are hexstrings
- *     and any whitespace can be used as separators.
- *
- * @remark See also load_trusted_setup().
- * @remark The input file will not be closed.
- *
- * @param[out] out Pointer to the loaded trusted setup data
- * @param[in]  in  File handle for input
- */
-C_KZG_RET load_trusted_setup_file(KZGSettings *out, FILE *in) {
-    int num_matches;
-    uint64_t i;
-    uint8_t g1_bytes[TRUSTED_SETUP_NUM_G1_POINTS * BYTES_PER_G1];
-    uint8_t g2_bytes[TRUSTED_SETUP_NUM_G2_POINTS * BYTES_PER_G2];
-
-    /* Read the number of g1 points */
-    num_matches = fscanf(in, "%" SCNu64, &i);
-    CHECK(num_matches == 1);
-    CHECK(i == TRUSTED_SETUP_NUM_G1_POINTS);
-
-    /* Read the number of g2 points */
-    num_matches = fscanf(in, "%" SCNu64, &i);
-    CHECK(num_matches == 1);
-    CHECK(i == TRUSTED_SETUP_NUM_G2_POINTS);
-
-    /* Read all of the g1 points, byte by byte */
-    for (i = 0; i < TRUSTED_SETUP_NUM_G1_POINTS * BYTES_PER_G1; i++) {
-        num_matches = fscanf(in, "%2hhx", &g1_bytes[i]);
-        CHECK(num_matches == 1);
-    }
-
-    /* Read all of the g2 points, byte by byte */
-    for (i = 0; i < TRUSTED_SETUP_NUM_G2_POINTS * BYTES_PER_G2; i++) {
-        num_matches = fscanf(in, "%2hhx", &g2_bytes[i]);
-        CHECK(num_matches == 1);
-    }
-
-    return load_trusted_setup(
-        out,
-        g1_bytes,
-        TRUSTED_SETUP_NUM_G1_POINTS,
-        g2_bytes,
-        TRUSTED_SETUP_NUM_G2_POINTS
-    );
 }
